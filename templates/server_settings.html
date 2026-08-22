@@ -1,0 +1,126 @@
+{% extends '_base.html' %}
+{% block title %}{{ s.name }} - 配置{% endblock %}
+{% block content %}
+
+<div class="dash-header">
+  <div>
+    <div class="crumb"><a href="{{ url_for('dashboard') }}">仪表盘</a> / <a href="{{ url_for('server_detail', sid=s.id) }}">{{ s.name }}</a> / 配置</div>
+    <h1 class="dash-title"><i data-i="gear"></i> 服务器配置</h1>
+    <p class="dash-sub">修改后保存, 并重启服务器使新配置生效</p>
+  </div>
+  <div class="dash-actions">
+    <a class="btn btn-ghost" href="{{ url_for('server_detail', sid=s.id) }}">← 返回控制台</a>
+  </div>
+</div>
+
+<form method="post" class="card-panel form-panel">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+  <h3 class="form-title">基础信息</h3>
+  <div class="form-grid">
+    <label class="form-item span-2">
+      <span>服务器名称 <span class="req">*</span></span>
+      <input name="name" value="{{ s.name }}" required maxlength="60"/>
+    </label>
+    <label class="form-item">
+      <span>服务端核心</span>
+      <select name="server_type">
+        {% for t in ['paper','spigot','vanilla','fabric','forge'] %}
+        <option value="{{ t }}" {% if s.server_type == t %}selected{% endif %}>{{ t }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="form-item">
+      <span>游戏版本</span>
+      <select name="version">
+        {% for v in ['1.21.1','1.20.6','1.20.4','1.20.1','1.19.4','1.18.2','1.17.1','1.16.5','1.12.2','1.8.9'] %}
+        <option {% if s.version == v %}selected{% endif %}>{{ v }}</option>
+        {% endfor %}
+      </select>
+    </label>
+  </div>
+
+  <h3 class="form-title">资源调整</h3>
+  <div class="form-grid">
+    <label class="form-item">
+      <span>内存 (MB) · 剩余 {{ remain_mem }} MB</span>
+      <input name="memory" type="number" min="512" max="{{ remain_mem + s.memory }}" value="{{ s.memory }}" step="256"/>
+      <small>需重启服务器生效；建议 Paper ≥ 2048MB，模组端 ≥ 4096MB</small>
+    </label>
+    <label class="form-item">
+      <span>核心 (核) · 剩余 {{ remain_cores }} 核</span>
+      <input name="cores" type="number" min="1" max="{{ remain_cores + s.cores }}" value="{{ s.cores }}" />
+      <small>1-2 核满足 10 人以内；大服建议 4 核+</small>
+    </label>
+    <label class="form-item span-2">
+      <span>额外 JVM 参数</span>
+      <input name="java_args" value="{{ s.java_args }}" placeholder="-XX:+AggressiveOpts -Dfile.encoding=UTF-8" />
+    </label>
+  </div>
+
+  <h3 class="form-title">游戏规则 · server.properties</h3>
+  <div class="form-grid">
+    <label class="form-item span-2">
+      <span>MOTD (服务器列表悬浮文字)</span>
+      <input name="motd" value="{{ s.motd }}" maxlength="200"/>
+    </label>
+    <label class="form-item">
+      <span>最大玩家数</span>
+      <input name="max_players" type="number" min="1" max="200" value="{{ s.max_players }}"/>
+    </label>
+    <label class="form-item">
+      <span>难度</span>
+      <select name="difficulty">
+        {% for d in ['peaceful','easy','normal','hard'] %}
+        <option {% if s.difficulty == d %}selected{% endif %}>{{ d }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="form-item">
+      <span>世界名称 (level-name)</span>
+      <input name="level_name" value="{{ s.level_name }}" maxlength="60"/>
+    </label>
+    <label class="form-item">
+      <span>游戏模式</span>
+      <select name="gamemode">
+        {% for g in ['survival','creative','adventure','spectator'] %}
+        <option {% if (s.gamemode or 'survival') == g %}selected{% endif %}>{{ g }}</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <label class="form-check form-item">
+      <input type="checkbox" class="b-check" name="online_mode" {% if s.online_mode %}checked{% endif %}/>
+      <span><b>正版验证 (online-mode)</b><small>关闭后离线用户也可进入服务器</small></span>
+    </label>
+    <label class="form-check form-item">
+      <input type="checkbox" class="b-check" name="pvp_enabled" {% if s.pvp_enabled %}checked{% endif %}/>
+      <span><b>允许 PVP</b><small>玩家之间可以互相伤害</small></span>
+    </label>
+    <label class="form-check form-item">
+      <input type="checkbox" class="b-check" name="whitelist_enabled" {% if s.whitelist_enabled %}checked{% endif %}/>
+      <span><b>白名单模式</b><small>只有加入白名单的玩家可以进入</small></span>
+    </label>
+    <label class="form-check form-item">
+      <input type="checkbox" class="b-check" name="auto_start" {% if s.auto_start %}checked{% endif %}/>
+      <span><b>面板启动时自动开启</b><small>跟随面板进程自动启动该服务器</small></span>
+    </label>
+    <label class="form-check form-item">
+      <input type="checkbox" class="b-check" name="enable_command_block" {% if s.enable_command_block %}checked{% endif %}/>
+      <span><b>启用命令方块</b><small>开启后地图内命令方块可执行</small></span>
+    </label>
+    <label class="form-check form-item">
+      <input type="checkbox" class="b-check" name="allow_flight" {% if s.allow_flight %}checked{% endif %}/>
+      <span><b>允许飞行</b><small>允许使用生存飞行类模组</small></span>
+    </label>
+  </div>
+
+  <div class="form-actions">
+    <a class="btn btn-ghost" href="{{ url_for('server_detail', sid=s.id) }}">取消</a>
+    <button class="btn btn-primary" type="submit">
+      <i data-i="gear"></i>
+      保存设置
+    </button>
+  </div>
+</form>
+
+{% endblock %}

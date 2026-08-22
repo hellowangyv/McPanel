@@ -1,0 +1,153 @@
+{% extends '_base.html' %}
+{% block title %}{{ s.name }} - 控制台{% endblock %}
+{% block content %}
+{% set sid = s.id %}
+
+<div class="dash-header server-header">
+  <div>
+    <div class="crumb"><a href="{{ url_for('dashboard') }}">仪表盘</a> / 服务器详情 / #{{ sid }}</div>
+    <h1 class="dash-title">
+      <span class="status-dot" id="sv-status-dot" style="background:{{ s.status_color }}"></span>
+      {{ s.name }}
+      <span class="status-chip" id="sv-status-chip" style="border-color:{{ s.status_color }};color:{{ s.status_color }}">
+        {{ s.status_display }}
+      </span>
+    </h1>
+    <p class="dash-sub">{{ s.server_type }} · {{ s.version }} · 端口 {{ s.port }} · PID
+      <b id="sv-pid">{{ s.pid or '-' }}</b>
+    </p>
+  </div>
+  <div class="dash-actions server-actions">
+    <button class="btn btn-success btn-action" id="btn-start" data-act="start">
+      <i data-i="play"></i> 启动
+    </button>
+    <button class="btn btn-warning btn-action" id="btn-restart" data-act="restart">
+      <i data-i="restart"></i> 重启
+    </button>
+    <button class="btn btn-danger btn-action" id="btn-stop" data-act="stop">
+      <i data-i="stop"></i> 停止
+    </button>
+    <button class="btn btn-danger-outline btn-action" id="btn-kill" data-act="kill" title="强制终止进程">
+      强制结束
+    </button>
+  </div>
+</div>
+
+<!-- 统计 -->
+<div class="server-stat-grid">
+  <div class="stat-tile st-cpu">
+    <div class="st-label">CPU 使用率</div>
+    <div class="st-value" id="st-cpu">--%</div>
+    <div class="bar big bar-jade"><span id="bar-cpu" style="width:0%"></span></div>
+  </div>
+  <div class="stat-tile st-mem">
+    <div class="st-label">内存占用</div>
+    <div class="st-value" id="st-mem">-- MB</div>
+    <div class="bar big bar-blue"><span id="bar-mem" style="width:0%"></span></div>
+  </div>
+  <div class="stat-tile st-players">
+    <div class="st-label">在线玩家</div>
+    <div class="st-value"><span id="st-players">0</span> / {{ s.max_players }}</div>
+    <div class="player-avatars" id="st-player-avatars"></div>
+  </div>
+  <div class="stat-tile st-uptime">
+    <div class="st-label">运行时间</div>
+    <div class="st-value" id="st-uptime">0s</div>
+    <div class="st-sub">进程 PID: <b id="st-pid">-</b></div>
+  </div>
+</div>
+
+<!-- 资源趋势图 -->
+<div class="card-panel">
+  <div class="panel-head">
+    <h3>资源使用趋势</h3>
+    <span class="muted">每 3 秒采样 · 服务器运行中实时记录</span>
+  </div>
+  <div id="trend-chart" class="chart-box"></div>
+</div>
+
+<!-- Tabs -->
+<div class="tabs card-panel">
+  <nav class="tab-nav">
+    <button class="tab active" data-tab="tab-console"><i data-i="terminal"></i> 控制台</button>
+    <button class="tab" data-tab="tab-info"><i data-i="server"></i> 服务器信息</button>
+    <a class="tab" href="{{ url_for('server_settings', sid=sid) }}"><i data-i="gear"></i> 配置</a>
+    <a class="tab" href="{{ url_for('server_files', sid=sid) }}"><i data-i="file"></i> 文件管理</a>
+  </nav>
+
+  <!-- 控制台 -->
+  <section class="tab-panel active" id="tab-console">
+    <div class="console-toolbar">
+      <div class="con-tool-left">
+        <span class="muted">实时日志</span>
+        <span class="chip">房间 #{{ sid }}</span>
+      </div>
+      <div class="con-tool-right">
+        <button class="btn btn-ghost btn-xs" onclick="consoleScroll.toggle()"><i data-i="arrow-down" style="width:13px;height:13px"></i> 自动滚动</button>
+        <button class="btn btn-ghost btn-xs" onclick="document.getElementById('console-box').innerHTML=''"><i data-i="trash" style="width:13px;height:13px"></i> 清屏</button>
+      </div>
+    </div>
+    <div id="console-box" class="console-box"></div>
+    <form id="console-form" class="console-input" autocomplete="off">
+      <button type="button" class="prompt-btn" title="快捷命令" onclick="toggleQuickCmds()">⌘</button>
+      <input id="console-cmd" type="text" placeholder="输入命令, 回车发送. 例: list, say hi, op Steve, stop..." />
+      <button class="btn btn-primary btn-xs" type="submit">发送</button>
+    </form>
+    <div id="quick-cmds" class="quick-cmds hidden">
+      <span>常用：</span>
+      {% for cmd in ['help','list','say 服务器即将重启!','op Steve','deop Steve','gamemode creative Steve','gamemode survival Steve','whitelist on','whitelist off','save-all','stop'] %}
+      <button type="button" class="btn btn-ghost btn-xs qc-btn" data-cmd="{{ cmd }}">{{ cmd }}</button>
+      {% endfor %}
+    </div>
+  </section>
+
+  <!-- 服务器信息 -->
+  <section class="tab-panel" id="tab-info">
+    <div class="info-grid">
+      <div class="info-card">
+        <h4>基础信息</h4>
+        <div class="info-item"><span>ID</span><b>{{ s.id }}</b></div>
+        <div class="info-item"><span>服务器名</span><b>{{ s.name }}</b></div>
+        <div class="info-item"><span>核心</span><b>{{ s.server_type }}</b></div>
+        <div class="info-item"><span>版本</span><b>{{ s.version }}</b></div>
+        <div class="info-item"><span>绑定端口</span><b>0.0.0.0:{{ s.port }}</b></div>
+        <div class="info-item"><span>连接地址</span>
+          <b class="copyable" onclick="copyText(location.hostname + ':' + {{ s.port }})">{{ request.host.split(':')[0] }}:{{ s.port }} <i data-i="copy" style="width:13px;height:13px"></i></b>
+        </div>
+      </div>
+      <div class="info-card">
+        <h4>分配资源</h4>
+        <div class="info-item"><span>内存</span><b>{{ s.memory }} MB ({{ '%.2f' | format(s.memory/1024) }} GB)</b></div>
+        <div class="info-item"><span>CPU 核心</span><b>{{ s.cores }} 核</b></div>
+        <div class="info-item"><span>JAR 文件</span><b>{{ s.jar_file }}</b></div>
+        <div class="info-item"><span>额外 JVM 参数</span><b>{{ s.java_args or '(无)' }}</b></div>
+      </div>
+      <div class="info-card">
+        <h4>游戏规则</h4>
+        <div class="info-item"><span>MOTD</span><b>{{ s.motd }}</b></div>
+        <div class="info-item"><span>最大玩家</span><b>{{ s.max_players }}</b></div>
+        <div class="info-item"><span>世界名</span><b>{{ s.level_name }}</b></div>
+        <div class="info-item"><span>难度</span><b>{{ s.difficulty }}</b></div>
+        <div class="info-item"><span>正版验证</span><b>{{ '是 ✓' if s.online_mode else '否 ✗ (离线)' }}</b></div>
+        <div class="info-item"><span>PVP</span><b>{{ '开启' if s.pvp_enabled else '关闭' }}</b></div>
+        <div class="info-item"><span>白名单</span><b>{{ '开启' if s.whitelist_enabled else '关闭' }}</b></div>
+        <div class="info-item"><span>开机自启</span><b>{{ '是' if s.auto_start else '否' }}</b></div>
+      </div>
+      <div class="info-card danger-card">
+        <h4>危险操作</h4>
+        <form method="post" action="{{ url_for('server_delete', sid=sid) }}" onsubmit="return confirm('确定删除服务器 {{ s.name }}? 所有数据将无法恢复!')">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+          <p class="muted">删除服务器将清除所有世界、插件、配置与备份。</p>
+          <button class="btn btn-danger btn-block" type="submit"><i data-i="trash"></i> 永久删除此服务器</button>
+        </form>
+      </div>
+    </div>
+  </section>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  window.initServerDetail && window.initServerDetail({{ sid }});
+</script>
+{% endblock %}

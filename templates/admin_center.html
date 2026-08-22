@@ -1,0 +1,247 @@
+{% extends '_base.html' %}
+{% block title %}管理员中心{% endblock %}
+{% block content %}
+
+<div class="dash-header">
+  <div>
+    <div class="crumb">管理员中心 // 全局概览</div>
+    <h1 class="dash-title"><i data-i="shield"></i> 管理员控制台</h1>
+    <p class="dash-sub">全局监控 · 用户管理 · 节点调度 · 一切尽在掌握</p>
+  </div>
+  <div class="dash-actions">
+    <a class="btn btn-ghost btn-sm" href="{{ url_for('admin_users') }}"><i data-i="users" style="width:13px;height:13px"></i> 用户管理</a>
+    <a class="btn btn-ghost btn-sm" href="{{ url_for('admin_servers') }}"><i data-i="server" style="width:13px;height:13px"></i> 服务器列表</a>
+    <a class="btn btn-primary btn-sm" href="{{ url_for('admin_nodes') }}"><i data-i="link" style="width:13px;height:13px"></i> 节点管理</a>
+  </div>
+</div>
+
+<!-- 全局统计 -->
+<div class="quota-grid">
+  <div class="quota-card q-jade">
+    <div class="quota-icon"><i data-i="users" style="width:22px;height:22px"></i></div>
+    <div class="quota-text">
+      <div class="quota-label">注册用户</div>
+      <div class="quota-value"><span class="accent">{{ users_total }}</span><span class="quota-sub"> 人</span></div>
+      <div class="quota-bar"><span style="width:100%"></span></div>
+      <div class="quota-meta">面板总注册人数</div>
+    </div>
+  </div>
+  <div class="quota-card q-lapis">
+    <div class="quota-icon"><i data-i="server" style="width:22px;height:22px"></i></div>
+    <div class="quota-text">
+      <div class="quota-label">服务器总数</div>
+      <div class="quota-value"><span class="accent">{{ servers_total }}</span><span class="quota-sub"> / {{ servers_running }} 运行中</span></div>
+      <div class="quota-bar"><span style="width:{{ (servers_running / (servers_total or 1) * 100)|round(1) }}%"></span></div>
+      <div class="quota-meta">本地 + 所有节点合计</div>
+    </div>
+  </div>
+  <div class="quota-card q-amber">
+    <div class="quota-icon"><i data-i="link" style="width:22px;height:22px"></i></div>
+    <div class="quota-text">
+      <div class="quota-label">分布式节点</div>
+      <div class="quota-value"><span class="accent">{{ nodes_online }}</span><span class="quota-sub"> / {{ nodes_total }} 在线</span></div>
+      <div class="quota-bar"><span style="width:{{ (nodes_online / (nodes_total or 1) * 100)|round(1) }}%"></span></div>
+      <div class="quota-meta">离线节点将在心跳中标记</div>
+    </div>
+  </div>
+  <div class="quota-card q-purple">
+    <div class="quota-icon"><i data-i="memory" style="width:22px;height:22px"></i></div>
+    <div class="quota-text">
+      <div class="quota-label">本地内存</div>
+      <div class="quota-value"><span class="accent">{{ local_host.memory_used_gb }}</span><span class="quota-sub"> / {{ local_host.memory_total_gb }} GB</span></div>
+      <div class="quota-bar"><span style="width:{{ local_host.memory_percent }}%"></span></div>
+      <div class="quota-meta">仅主节点, 所有节点在下方查看</div>
+    </div>
+  </div>
+</div>
+
+<!-- 集群内存环形图 -->
+{% set cluster_total = (local_host.memory_total_gb + nodes|sum(attribute='host_memory_total')) %}
+{% set cluster_used = (local_host.memory_used_gb + nodes|sum(attribute='host_memory_used')) %}
+<div class="card-panel">
+  <div class="panel-head">
+    <h3>集群资源分布</h3>
+    <span class="muted">主节点 + 所有分布式节点</span>
+  </div>
+  <div class="chart-2col" style="display:grid;grid-template-columns:1fr 1fr;gap:18px">
+    <div>
+      <div id="admin-donut-mem" class="chart-box sm" data-donut
+           data-donut-used="{{ cluster_used }}" data-donut-total="{{ cluster_total or 1 }}"
+           data-donut-color="#4E8DF5" data-donut-label="集群内存"></div>
+      <div class="chart-legend">
+        <span class="lg-item"><i style="background:#4E8DF5"></i>已用 {{ '%.1f'|format(cluster_used) }} / {{ '%.1f'|format(cluster_total) }} GB</span>
+      </div>
+    </div>
+    <div>
+      <div id="admin-donut-servers" class="chart-box sm" data-donut
+           data-donut-used="{{ servers_running }}" data-donut-total="{{ servers_total or 1 }}"
+           data-donut-color="#10B981" data-donut-label="运行中服务器"></div>
+      <div class="chart-legend">
+        <span class="lg-item"><i style="background:#10B981"></i>运行中 {{ servers_running }} / {{ servers_total }} 台</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 本地 + 节点资源总览 -->
+<div class="card-panel">
+  <div class="panel-head">
+    <h3><i data-i="cpu"></i> 集群资源总览</h3>
+    <span class="muted">主节点 + 所有在线分支节点</span>
+  </div>
+
+  <table class="admin-table" style="width:100%;margin-top:8px">
+    <thead>
+      <tr>
+        <th>节点</th><th>位置</th><th>状态</th><th>CPU</th>
+        <th>物理内存</th><th>已分配 / 实际可用</th><th>磁盘</th>
+        <th>在线玩家</th><th>服务器</th><th>最后心跳</th><th>操作</th>
+      </tr>
+    </thead>
+    <tbody>
+      <!-- 本地节点 (虚拟) -->
+      <tr>
+        <td><b>🏠 localhost (主面板)</b></td><td>-</td>
+        <td><span style="color:#22c55e">● 在线</span></td>
+        <td>
+          <div style="min-width:120px">
+            <small>{{ local_host.cpu }}%</small>
+            <div class="bar bar-jade" style="height:6px;margin-top:2px"><span style="width:{{ local_host.cpu }}%"></span></div>
+          </div>
+        </td>
+        <td>
+          <small>{{ local_host.memory_used_gb }} / {{ local_host.memory_total_gb }} GB · {{ local_host.memory_percent }}%</small>
+          <div class="bar bar-blue" style="height:6px;margin-top:2px"><span style="width:{{ local_host.memory_percent }}%"></span></div>
+        </td>
+        <td>
+          <small>{{ (local_assigned_mb/1024)|round(2) }} GB 已分配</small><br>
+          <small style="color:#22c55e">{{ local_available_memory_mb }} MB 实际可用</small><br>
+          <small class="muted" style="font-size:10px">已分配 {{ local_assigned_cores }} 核 / 可用 {{ local_available_cores }} 核</small>
+        </td>
+        <td>
+          <small>{{ local_host.disk_used_gb }} / {{ local_host.disk_total_gb }} GB · {{ local_host.disk_percent }}%</small>
+          <div class="bar bar-amber" style="height:6px;margin-top:2px"><span style="width:{{ local_host.disk_percent }}%"></span></div>
+        </td>
+        <td>{{ local_online_players or 0 }}</td>
+        <td>本地管理</td><td>-</td>
+        <td><a class="btn btn-ghost btn-xs" href="{{ url_for('admin_servers') }}">查看服务器</a></td>
+      </tr>
+      {% for n in nodes %}
+      <tr>
+        <td><b>{{ n.name }}</b>
+          <div class="muted" style="font-size:11px">{{ n.api_url }}</div>
+        </td>
+        <td>{{ n.location or '-' }}</td>
+        <td><span style="color:{{ n.status_color }}">● {{ n.status_display }}</span>
+          {% if n.last_error %}<div class="muted" style="font-size:11px;color:#ef4444">{{ n.last_error[:50] }}</div>{% endif %}
+        </td>
+        <td>
+          <small>{{ n.host_cpu }}%{% if n.host_cpu_count %} · {{ n.host_cpu_count }}核{% endif %}</small>
+          <div class="bar bar-jade" style="height:6px;margin-top:2px"><span style="width:{{ n.host_cpu }}%"></span></div>
+        </td>
+        <td>
+          <small>{{ n.host_memory_used }} / {{ n.host_memory_total }} GB · {{ n.memory_percent }}%</small>
+          <div class="bar bar-blue" style="height:6px;margin-top:2px"><span style="width:{{ n.memory_percent }}%"></span></div>
+        </td>
+        <td>
+          <small>{{ (n.assigned_memory_mb()/1024)|round(2) }} GB 已分配</small><br>
+          <small style="color:#22c55e">{{ n.available_memory_mb }} MB 实际可用</small><br>
+          <small class="muted" style="font-size:10px">已分配 {{ n.assigned_cores }} 核 / 可用 {{ n.available_cores }} 核</small>
+        </td>
+        <td>
+          <small>{{ n.host_disk_used }} / {{ n.host_disk_total }} GB · {{ n.disk_percent }}%</small>
+          <div class="bar bar-amber" style="height:6px;margin-top:2px"><span style="width:{{ n.disk_percent }}%"></span></div>
+        </td>
+        <td><b>{{ n.online_players or 0 }}</b></td>
+        <td>{{ n.running_servers }} 运行 / {{ n.total_servers or '-' }} 总数</td>
+        <td class="muted" style="font-size:12px">
+          {% if n.last_heartbeat_at %}{{ n.last_heartbeat_at.strftime('%m-%d %H:%M:%S') }}{% else %}从未{% endif %}
+        </td>
+        <td>
+          <button class="btn btn-ghost btn-xs" onclick="pingNode({{ n.id }})">🔍 Ping</button>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="11" class="empty-state" style="padding:30px">
+        <div style="font-size:36px">🔗</div>
+        <h3 style="margin:10px 0">尚未添加任何分支节点</h3>
+        <p class="muted">你可以在其他服务器上运行 <code>python node_agent.py</code> 部署 Agent，然后在这里添加节点。</p>
+        <a class="btn btn-primary btn-sm" href="{{ url_for('admin_nodes') }}">前往节点管理 →</a>
+      </td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- 两栏: 最近用户 + 最近服务器 -->
+<div class="card-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px">
+  <div class="card-panel">
+    <div class="panel-head">
+      <h3><i data-i="users"></i> 最近注册用户</h3>
+      <a class="btn btn-ghost btn-xs" href="{{ url_for('admin_users') }}">全部 →</a>
+    </div>
+    <table class="admin-table" style="width:100%">
+      <thead><tr><th>用户</th><th>邮箱</th><th>配额</th><th>注册时间</th></tr></thead>
+      <tbody>
+        {% for u in recent_users %}
+        <tr>
+          <td>
+            <b>{{ u.username }}</b>
+            {% if u.is_admin %}<span class="badge-admin">OP</span>{% endif %}
+          </td>
+          <td class="muted">{{ u.email }}</td>
+          <td class="muted" style="font-size:12px">
+            {{ u.servers|length }}/{{ u.max_servers }} 服 · {{ (u.used_memory()/1024)|round(1) }}/{{ (u.total_memory/1024)|round(1) }} GB
+          </td>
+          <td class="muted" style="font-size:12px">{{ u.created_at.strftime('%m-%d %H:%M') }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4" class="muted" style="text-align:center;padding:20px">暂无用户</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card-panel">
+    <div class="panel-head">
+      <h3><i data-i="server"></i> 最近创建服务器</h3>
+      <a class="btn btn-ghost btn-xs" href="{{ url_for('admin_servers') }}">全部 →</a>
+    </div>
+    <table class="admin-table" style="width:100%">
+      <thead><tr><th>服务器</th><th>归属用户</th><th>规格</th><th>状态</th></tr></thead>
+      <tbody>
+        {% for s in recent_servers %}
+        <tr>
+          <td>
+            <a href="{{ url_for('server_detail', sid=s.id) }}" style="color:var(--amber)">
+              <b>{{ s.name }}</b>
+            </a>
+            <div class="muted" style="font-size:11px">{{ s.server_type }} · {{ s.version }} · :{{ s.port }}</div>
+          </td>
+          <td>{{ s.owner.username }}</td>
+          <td class="muted" style="font-size:12px">{{ s.memory }}MB · {{ s.cores }}核</td>
+          <td>
+            <span class="dot" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:{{ s.status_color }};margin-right:4px"></span>
+            {{ s.status_display }}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4" class="muted" style="text-align:center;padding:20px">暂无服务器</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function pingNode(id){
+  fetch('/api/admin/nodes/' + id + '/ping').then(r=>r.json()).then(d=>{
+    if(d.ok) toast('Ping 成功! CPU ' + (d.info.host?.cpu||'?') + '%', 'ok');
+    else toast('Ping 失败: ' + (d.msg||'未知错误'), 'err');
+    setTimeout(()=>location.reload(), 1200);
+  }).catch(e=>toast('请求失败: '+e.message,'err'));
+}
+</script>
+{% endblock %}

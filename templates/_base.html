@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>{% block title %}McPanel{% endblock %} · {{ panel_name }}</title>
+  <meta name="description" content="类简幻欢的公益免费 Minecraft 开服面板 - 一键开服，实时控制台，资源配额管理" />
+  <link rel="icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' fill='%230A0E14'/><rect width='62' height='62' x='1' y='1' fill='none' stroke='%2310B981' stroke-width='3' rx='14'/><text x='50%25' y='58%25' text-anchor='middle' font-size='38' font-family='Arial Black' font-weight='900' fill='%2334D399'>M</text></svg>" />
+  <!-- 字体: Space Grotesk (标题) · JetBrains Mono (数据/终端) · Outfit (正文) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;600;700;800&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}" />
+  <!-- CSRF token: 供前端 fetch 拦截器读取后注入 X-CSRFToken 头 -->
+  <meta name="csrf-token" content="{{ csrf_token() }}" />
+  {% block head %}{% endblock %}
+</head>
+<body class="{% block body_class %}{% endblock %}">
+  <!-- 基底层 -->
+  <div class="bg-layer bg-noise" aria-hidden="true"></div>
+  <div class="bg-layer bg-grad" aria-hidden="true"></div>
+  <div class="bg-layer bg-ore" aria-hidden="true"></div>
+  <div class="bg-layer bg-vignette" aria-hidden="true"></div>
+
+  <!-- 顶部导航栏 (登录后显示) -->
+  {% if current_user.is_authenticated %}
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="{{ url_for('dashboard') }}">
+        <span class="brand-mark" aria-hidden="true">
+          <span class="bm bm-1"></span><span class="bm bm-2"></span><span class="bm bm-3"></span>
+        </span>
+        <span class="brand-text">McPanel</span>
+        <span class="brand-tag">公益 · 非盈利</span>
+      </a>
+      <nav class="nav-links" role="navigation">
+        <a href="{{ url_for('dashboard') }}" class="{% if request.endpoint == 'dashboard' %}active{% endif %}">
+          <i data-i="grid"></i>
+          <span>控制台</span>
+        </a>
+        <a href="{{ url_for('server_new') }}" class="{% if request.endpoint == 'server_new' %}active{% endif %}">
+          <i data-i="plus"></i>
+          <span>创建服务器</span>
+        </a>
+        {% if current_user.is_admin %}
+        <div class="nav-item-group">
+          <a href="{{ url_for('admin_center') }}" class="{% if request.endpoint and request.endpoint.startswith('admin') %}active{% endif %}">
+            <i data-i="shield"></i>
+            <span>管理员中心</span>
+          </a>
+        </div>
+        {% endif %}
+      </nav>
+      <div class="user-area">
+        <div class="user-info">
+          <div class="user-name">
+            {{ current_user.username }}
+            {% if current_user.is_admin %}<span class="badge-admin">OP</span>{% endif %}
+          </div>
+          <div class="user-balance">￥ {{ '%.2f' % current_user.balance }}</div>
+        </div>
+        <div class="user-avatar" title="{{ current_user.username }}">
+          {{ current_user.username[:2].upper() }}
+        </div>
+        <a class="btn btn-ghost btn-sm" href="{{ url_for('auth_logout') }}">
+          <i data-i="logout"></i>退出
+        </a>
+      </div>
+    </div>
+  </header>
+  {% endif %}
+
+  <!-- Flash 消息 -->
+  <div class="flash-wrap">
+    {% if session.get('_must_change_admin_password') and current_user.is_admin %}
+    <div class="flash flash-warning" style="position:sticky;top:0;z-index:50">
+      <span class="flash-icon">!</span>
+      <span class="flash-text">⚠ 检测到您仍使用默认管理员口令 <code>admin123</code>, 这是高危配置, 请尽快前往「管理员中心 → 用户管理」修改</span>
+    </div>
+    {% endif %}
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for category, msg in messages %}
+      <div class="flash flash-{{ category }}">
+        <span class="flash-icon">
+          {% if category == 'success' %}✓
+          {% elif category in ('error','danger') %}✗
+          {% elif category == 'warning' %}!
+          {% else %}i{% endif %}
+        </span>
+        <span class="flash-text">{{ msg }}</span>
+        <button class="flash-close" onclick="this.parentElement.remove()">&times;</button>
+      </div>
+      {% endfor %}
+    {% endwith %}
+  </div>
+
+  <!-- 主体 -->
+  <main class="main-wrap">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- 全局 Toast -->
+  <div id="toast-host" class="toast-host" aria-live="polite"></div>
+
+  <footer class="site-footer">
+    <div class="fcol">
+      <span class="f-brand">
+        <span class="brand-mark sm" aria-hidden="true">
+          <span class="bm bm-1"></span><span class="bm bm-2"></span><span class="bm bm-3"></span>
+        </span>
+        McPanel
+      </span>
+      <span class="f-dot">·</span>
+      <span>© {{ now_year }} 秉持公益理念 · 非营利运营</span>
+    </div>
+    <div class="fcol right">
+      <span class="f-meta">方块玩家的乌托邦</span>
+      <span class="f-sep">//</span>
+      <span class="f-heart">built with <span>◆</span> for crafters</span>
+    </div>
+  </footer>
+
+  <!-- ECharts (数据可视化) -->
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"
+          onerror="(function(){var s=document.createElement('script');s.src='https://unpkg.com/echarts@5.4.3/dist/echarts.min.js';document.head.appendChild(s);})()"></script>
+  <!-- Socket.IO -->
+  <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.7.5/dist/socket.io.min.js"
+          onerror="(function(){var s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js';document.head.appendChild(s);})()"></script>
+  <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

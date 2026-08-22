@@ -1,0 +1,219 @@
+{% extends '_base.html' %}
+{% block title %}节点管理 · 管理员中心{% endblock %}
+{% block content %}
+
+<div class="dash-header">
+  <div>
+    <div class="crumb">管理员中心 // <a href="{{ url_for('admin_center') }}" style="color:var(--amber)">全局概览</a> // 分布式节点</div>
+    <h1 class="dash-title"><i data-i="link"></i> 分布式节点管理</h1>
+    <p class="dash-sub">添加分支服务器 · 监控节点健康 · 调度 Minecraft 实例到远程机器</p>
+  </div>
+  <div class="dash-actions">
+    <a class="btn btn-ghost btn-sm" href="#" onclick="document.getElementById('help-agent').style.display='block';return false;">
+      📖 部署 Agent 指南
+    </a>
+  </div>
+</div>
+
+<!-- 帮助面板 -->
+<div class="card-panel" id="help-agent" style="display:none;margin-bottom:16px;border:1px dashed rgba(245,166,35,.4)">
+  <div class="panel-head">
+    <h3><i data-i="book"></i> 如何部署分支节点 (Node Agent)</h3>
+    <button class="btn btn-ghost btn-xs" onclick="this.closest('.card-panel').remove()">× 关闭</button>
+  </div>
+  <ol style="line-height:2;padding-left:22px;margin:10px 0">
+    <li>把 <code>node_agent.py</code>、<code>server_manager.py</code>、<code>requirements.txt</code> 拷贝到远程服务器</li>
+    <li>远程服务器安装依赖: <code>pip install -r requirements.txt</code></li>
+    <li>启动 Agent，设置共享 Token（与下方填写保持一致）:
+      <pre style="background:var(--bg-2);padding:10px;border-radius:6px;margin:8px 0;overflow:auto">
+set NODE_API_TOKEN=你生成的随机密钥
+python node_agent.py --host 0.0.0.0 --port 58765</pre>
+    </li>
+    <li>Agent 启动后会打印监听地址和 Token，确保 <code>http://远程IP:58765/health</code> 能访问</li>
+    <li>在下方表单填入节点名称、API URL (<code>http://远程IP:58765</code>)、以及上面的共享 Token，点击添加即可</li>
+    <li>添加完成后点击 Ping 测试，状态变为"在线"说明通信正常</li>
+  </ol>
+  <p class="muted">💡 建议：生产环境为 Agent 配置 Nginx 反向代理 + HTTPS，并设置 --allow-from 主面板IP白名单。</p>
+</div>
+
+<!-- 添加节点表单 -->
+<div class="card-panel" style="margin-bottom:16px">
+  <div class="panel-head">
+    <h3><i data-i="plus"></i> 添加新节点</h3>
+    <span class="muted">节点 Agent 启动后在此登记</span>
+  </div>
+  <form id="add-node-form" style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:12px;margin-top:12px;align-items:end">
+    <div>
+      <label class="muted" style="font-size:12px;display:block;margin-bottom:4px">节点名称 *</label>
+      <input required id="n-name" type="text" placeholder="例如: 华东电信-1号" class="form-input" style="width:100%;padding:8px 10px;border:1px solid var(--line-s);border-radius:9px;background:var(--bg-1);color:var(--text)">
+    </div>
+    <div>
+      <label class="muted" style="font-size:12px;display:block;margin-bottom:4px">API 地址 *</label>
+      <input required id="n-url" type="text" placeholder="http://192.168.1.10:58765" class="form-input" style="width:100%;padding:8px 10px;border:1px solid var(--line-s);border-radius:9px;background:var(--bg-1);color:var(--text)">
+    </div>
+    <div>
+      <label class="muted" style="font-size:12px;display:block;margin-bottom:4px">共享 Token *</label>
+      <div style="display:flex;gap:6px">
+        <input required id="n-token" type="text" placeholder="≥8 位随机字符串" class="form-input" style="flex:1;padding:8px 10px;border:1px solid var(--line-s);border-radius:9px;background:var(--bg-1);color:var(--text)">
+        <button type="button" class="btn btn-ghost btn-xs" onclick="genToken()" title="生成随机 Token"><i data-i="dice"></i></button>
+      </div>
+    </div>
+    <div>
+      <label class="muted" style="font-size:12px;display:block;margin-bottom:4px">位置 / 备注</label>
+      <input id="n-loc" type="text" placeholder="可选: 机房位置" class="form-input" style="width:100%;padding:8px 10px;border:1px solid var(--line-s);border-radius:9px;background:var(--bg-1);color:var(--text)">
+    </div>
+    <button type="submit" class="btn btn-primary" style="padding:10px 18px">添加节点</button>
+  </form>
+</div>
+
+<!-- 节点列表 -->
+<div class="card-panel">
+  <div class="panel-head">
+    <h3><i data-i="link"></i> 节点列表 (共 {{ nodes|length }} 台)</h3>
+    <span class="muted">每 5 秒自动心跳检测 (满足 ≤5s 延迟)</span>
+  </div>
+
+  <table class="admin-table" style="width:100%;margin-top:12px">
+    <thead>
+      <tr>
+        <th>ID</th><th>名称 / API 地址</th><th>位置</th><th>状态</th>
+        <th>CPU</th><th>物理内存</th><th>已分配 / 实际可用</th><th>磁盘</th>
+        <th>在线玩家</th><th>服务器数 (配额/已用/剩余)</th>
+        <th>最后心跳</th><th>操作</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for n in nodes %}
+      <tr data-nid="{{ n.id }}">
+        <td class="muted">#{{ n.id }}</td>
+        <td>
+          <b>{{ n.name }}</b>
+          {% if n.description %}<div class="muted" style="font-size:11px">{{ n.description }}</div>{% endif %}
+          <div class="muted" style="font-size:11px;margin-top:2px">{{ n.api_url }}</div>
+        </td>
+        <td class="muted">{{ n.location or '-' }}</td>
+        <td>
+          <div style="display:flex;flex-direction:column;gap:2px">
+            <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:{{ n.status_color }};margin-right:4px"></span>{{ n.status_display }}</span>
+            {% if n.last_error %}
+              <small style="color:#ef4444;font-size:11px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ n.last_error }}">{{ n.last_error }}</small>
+            {% endif %}
+          </div>
+        </td>
+        <td>
+          <small>{{ n.host_cpu }}%{% if n.host_cpu_count %} · {{ n.host_cpu_count }}核{% endif %}</small>
+          <div class="bar bar-jade" style="height:6px;margin-top:2px"><span style="width:{{ n.host_cpu }}%"></span></div>
+        </td>
+        <td>
+          <small>{{ n.host_memory_used }} / {{ n.host_memory_total }} GB · {{ n.memory_percent }}%</small>
+          <div class="bar bar-blue" style="height:6px;margin-top:2px"><span style="width:{{ n.memory_percent }}%"></span></div>
+        </td>
+        <td>
+          <small>{{ (n.assigned_memory_mb()/1024)|round(2) }} GB 已分配</small><br>
+          <small style="color:#22c55e">{{ n.available_memory_mb }} MB 实际可用</small><br>
+          <small class="muted" style="font-size:10px">已分配 {{ n.assigned_cores }} 核 / 可用 {{ n.available_cores }} 核</small>
+        </td>
+        <td>
+          <small>{{ n.host_disk_used }} / {{ n.host_disk_total }} GB · {{ n.disk_percent }}%</small>
+          <div class="bar bar-amber" style="height:6px;margin-top:2px"><span style="width:{{ n.disk_percent }}%"></span></div>
+        </td>
+        <td><b>{{ n.online_players or 0 }}</b></td>
+        <td>
+          <div style="display:flex;align-items:center;gap:4px;margin-bottom:4px">
+            <input type="number" min="0" step="1" value="{{ n.max_servers or 0 }}"
+                   data-nid="{{ n.id }}" class="node-max-servers"
+                   style="width:64px;padding:4px 6px;border:1px solid var(--line);border-radius:4px;background:var(--bg-2);color:var(--text);font-size:12px" />
+            <button class="btn btn-ghost btn-xs" onclick="saveMaxServers({{ n.id }})">💾</button>
+          </div>
+          <small><b>{{ n.assigned_server_count() }}</b> 已用 / <b>{% if n.max_servers %}{{ n.available_server_slots }}{% else %}∞{% endif %}</b> 剩余</small><br>
+          <small class="muted" style="font-size:10px">{{ n.running_servers }} 运行 / {{ n.total_servers }} 台 (Agent)</small>
+        </td>
+        <td class="muted" style="font-size:12px">
+          {% if n.last_heartbeat_at %}
+            {{ n.last_heartbeat_at.strftime('%Y-%m-%d') }}<br>
+            {{ n.last_heartbeat_at.strftime('%H:%M:%S') }}
+          {% else %}<span class="muted">从未检测</span>{% endif %}
+        </td>
+        <td>
+          <div style="display:flex;flex-direction:column;gap:4px">
+            <button class="btn btn-ghost btn-xs" onclick="pingNode({{ n.id }})"><i data-i="zap" style="width:12px;height:12px"></i> Ping</button>
+            <button class="btn btn-danger btn-xs" onclick="delNode({{ n.id }})"><i data-i="trash" style="width:12px;height:12px"></i> 删除</button>
+          </div>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="12" class="empty-state" style="padding:60px">
+        <div style="font-size:60px">🔗</div>
+        <h3 style="margin:12px 0">还没有任何分布式节点</h3>
+        <p class="muted">通过上方表单添加节点，或查看"部署 Agent 指南"了解如何在远程服务器启动 Agent。</p>
+      </td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function genToken(){
+  const arr = new Uint8Array(24); crypto.getRandomValues(arr);
+  const s = btoa(String.fromCharCode(...arr)).replace(/[^A-Za-z0-9]/g,'');
+  document.getElementById('n-token').value = s;
+  toast('已生成随机 Token, 请在节点 Agent 使用相同值', 'ok');
+}
+
+document.getElementById('add-node-form').addEventListener('submit', e => {
+  e.preventDefault();
+  const body = {
+    name: document.getElementById('n-name').value.trim(),
+    api_url: document.getElementById('n-url').value.trim(),
+    api_token: document.getElementById('n-token').value.trim(),
+    location: document.getElementById('n-loc').value.trim(),
+  };
+  fetch('/api/admin/nodes/add',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(body)
+  }).then(r=>r.json()).then(d=>{
+    if(d.ok){ toast('节点已添加!', 'ok'); setTimeout(()=>location.reload(), 700); }
+    else toast(d.msg || '添加失败', 'err');
+  }).catch(e=>toast('请求失败: '+e.message, 'err'));
+});
+
+function pingNode(id){
+  const btn = event.target; btn.disabled = true; btn.textContent='Ping 中...';
+  fetch('/api/admin/nodes/' + id + '/ping').then(r=>r.json()).then(d=>{
+    if(d.ok) toast('✅ 连接成功! CPU ' + (d.info.host?.cpu||'?') + '% · 内存 ' + (d.info.host?.memory_percent||'?') + '%', 'ok');
+    else toast('❌ ' + (d.msg||'连接失败'), 'err');
+    setTimeout(()=>location.reload(), 1000);
+  }).catch(e=>toast('请求失败: '+e.message,'err'))
+   .finally(()=>{ btn.disabled = false; btn.textContent='🔍 Ping'; });
+}
+
+function delNode(id){
+  if(!confirm('确定删除节点 #' + id + '? 删除不会停止节点上已运行的服务器。若仍有服务器绑定到此节点则无法删除。')) return;
+  fetch('/api/admin/nodes/' + id + '/delete',{method:'POST'})
+    .then(r=>r.json()).then(d=>{
+      if(d.ok){ toast('节点已删除', 'ok'); setTimeout(()=>location.reload(), 700); }
+      else toast(d.msg || '删除失败', 'err');
+    }).catch(e=>toast('请求失败: '+e.message, 'err'));
+}
+
+function saveMaxServers(id){
+  const input = document.querySelector('.node-max-servers[data-nid="' + id + '"]');
+  if(!input) return;
+  const val = parseInt(input.value) || 0;
+  if(val < 0){ toast('最大服务器数不能为负数', 'err'); return; }
+  fetch('/api/admin/nodes/' + id + '/update',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({max_servers: val})
+  }).then(r=>r.json()).then(d=>{
+    if(d.ok){
+      toast('已保存最大服务器数: ' + (val===0 ? '不限' : val) + ' (剩余 ' + (d.available_slots===-1?'∞':d.available_slots) + ')', 'ok');
+      setTimeout(()=>location.reload(), 800);
+    } else toast(d.msg || '保存失败', 'err');
+  }).catch(e=>toast('请求失败: '+e.message, 'err'));
+}
+</script>
+{% endblock %}

@@ -1,0 +1,16 @@
+{% extends '_base.html' %}
+{% block title %}{{ code }} {{ title }}{% endblock %}
+{% block content %}
+<div class="error-wrap">
+  <div class="err-code">{{ code }}</div>
+  <h1>{{ title or '出错了' }}</h1>
+  <p>{{ desc or '请求处理失败, 请稍后重试或返回首页' }}</p>
+  <div class="err-actions">
+    <a class="btn btn-primary" href="{{ url_for('dashboard') if current_user.is_authenticated else url_for('landing') }}">
+      <i data-i="grid" style="width:14px;height:14px"></i>
+      返回首页
+    </a>
+    <a class="btn btn-outline" onclick="history.back()">返回上一页</a>
+  </div>
+</div>
+{% endblock %}
