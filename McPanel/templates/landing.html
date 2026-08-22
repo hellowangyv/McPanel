@@ -1,0 +1,125 @@
+{% extends '_base.html' %}
+{% block title %}首页{% endblock %}
+{% block body_class %}landing{% endblock %}
+{% block content %}
+
+<section class="hero">
+  <div class="hero-grid">
+    <div class="hero-text">
+      <span class="pill">
+        <span class="pill-dot"></span> 公益免费 · 永久不收费
+      </span>
+      <h1 class="hero-title">
+        用 <span class="grad-text">30 秒</span> 开一个<br/>
+        属于你的 <span class="grad-text">我的世界</span> 服务器
+      </h1>
+      <p class="hero-desc">
+        秉持「科技平权」公益理念，为真正需要的玩家提供高质量 MC 服务器。<br/>
+        BGP 高防网络 · 不超售 · 67 天数据保留 · 4C/16G 免费实例，无需信用卡。
+      </p>
+      <div class="hero-cta">
+        <a class="btn btn-primary btn-lg" href="{{ url_for('auth_register') }}">
+          立即免费开服
+          <i data-i="play" style="width:14px;height:14px"></i>
+        </a>
+        <a class="btn btn-outline btn-lg" href="{{ url_for('auth_login') }}">登录控制台</a>
+      </div>
+      <div class="hero-stats">
+        <div class="stat"><div class="stat-num">{{ stats.users or 128 }}+</div><div class="stat-lbl">注册用户</div></div>
+        <div class="stat"><div class="stat-num">{{ stats.servers or 300 }}+</div><div class="stat-lbl">累计实例</div></div>
+        <div class="stat"><div class="stat-num">{{ stats.running or 42 }}</div><div class="stat-lbl">当前在线</div></div>
+        <div class="stat"><div class="stat-num">99.9%</div><div class="stat-lbl">可用性</div></div>
+      </div>
+    </div>
+    <div class="hero-card">
+      <div class="mock-window">
+        <div class="mock-title">
+          <div class="mock-dots">
+            <span></span><span></span><span></span>
+          </div>
+          <div class="mock-title-text">McPanel · 服务器控制台</div>
+        </div>
+        <div class="mock-sub">
+          <div class="mock-status"><span class="dot-run"></span> 生存一区 · 运行中</div>
+          <div class="mock-port">端口 25565</div>
+        </div>
+        <div class="mock-log">
+          <div class="ml ml-info">[10:12:01] [Server thread/INFO]: Starting minecraft server version 1.20.4</div>
+          <div class="ml ml-info">[10:12:02] [Server thread/INFO]: Loading properties</div>
+          <div class="ml ml-warn">[10:12:03] [Server thread/WARN]: server.properties 未找到，使用默认配置</div>
+          <div class="ml ml-info">[10:12:05] [Server thread/INFO]: Preparing level "world"</div>
+          <div class="ml ml-info">[10:12:08] [Server thread/INFO]: Preparing spawn area: 75%</div>
+          <div class="ml ml-success">[10:12:12] [Server thread/INFO]: Done (11.23s)! For help, type "help"</div>
+          <div class="ml ml-cmd">op Steve</div>
+          <div class="ml ml-info">[10:12:20] [Server thread/INFO]: Made Steve a server operator</div>
+          <div class="ml ml-info">[10:12:45] [Server thread/INFO]: Steve[/10.0.0.8:51234] logged in</div>
+          <div class="ml ml-info">[10:13:01] [Server thread/INFO]: There are 1 of a max of 20 players online: Steve</div>
+        </div>
+        <div class="mock-input">
+          <span class="prompt">&gt;</span>
+          <input disabled placeholder="输入命令, 例如: list / say / gamemode / weather..." />
+          <button class="btn btn-primary btn-xs" disabled>发送</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="features">
+  <h2 class="section-title">为什么选择 <span class="grad-text">McPanel</span></h2>
+  <p class="section-desc">硬核参数，不玩数字游戏。公益面板的自我修养。</p>
+  <div class="feature-grid">
+    <div class="feature-card" style="--c:var(--primary)">
+      <div class="feature-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M20 7L12 3 4 7v10l8 4 8-4V7z"/><path d="M12 11V22"/></svg>
+      </div>
+      <h3>真正免费</h3>
+      <p>标配 4C/16G 公益实例，无需充值即可开通，价格永远远低于成本。</p>
+    </div>
+    <div class="feature-card" style="--c:var(--diamond)">
+      <div class="feature-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+      </div>
+      <h3>秒级部署</h3>
+      <p>从点击创建到控制台 Done，通常不超过 30 秒。版本、核心、参数一键可切。</p>
+    </div>
+    <div class="feature-card" style="--c:var(--amber)">
+      <div class="feature-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 010 18M12 3a14 14 0 000 18"/></svg>
+      </div>
+      <h3>BGP 高防</h3>
+      <p>全 BGP 多线接入，搭配 DDoS 防护，国内访问稳定快速，基友联机不卡顿。</p>
+    </div>
+    <div class="feature-card" style="--c:var(--lapis)">
+      <div class="feature-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      </div>
+      <h3>67 天数据保留</h3>
+      <p>实例销毁后备份额外保留 60 天。误操作、关服也能随时把世界拉回来。</p>
+    </div>
+    <div class="feature-card" style="--c:var(--redstone)">
+      <div class="feature-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 2l3 7h7l-5.5 4 2 7L12 16l-6.5 4 2-7L2 9h7z"/></svg>
+      </div>
+      <h3>主流核心支持</h3>
+      <p>Paper · Spigot · Vanilla · Forge · Fabric 全覆盖，插件 Mod 随意搭配。</p>
+    </div>
+    <div class="feature-card" style="--c:var(--gold)">
+      <div class="feature-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+      </div>
+      <h3>实时控制台</h3>
+      <p>WebSocket 毫秒级推送日志，命令即发即响应。在线人数、资源占用可视化。</p>
+    </div>
+  </div>
+</section>
+
+<section class="plan-cta">
+  <h2>准备好开始了吗？</h2>
+  <p class="section-desc">注册即送 2 台实例 / 4G 内存配额，永久免费。</p>
+  <div class="plan-buttons">
+    <a class="btn btn-primary btn-xl" href="{{ url_for('auth_register') }}">立即免费注册</a>
+    <a class="btn btn-outline btn-xl" href="{{ url_for('auth_login') }}">老玩家登录</a>
+  </div>
+</section>
+{% endblock %}

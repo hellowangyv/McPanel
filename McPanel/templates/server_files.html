@@ -1,0 +1,82 @@
+{% extends '_base.html' %}
+{% block title %}{{ s.name }} - 文件{% endblock %}
+{% block content %}
+
+<div class="dash-header">
+  <div>
+    <div class="crumb"><a href="{{ url_for('dashboard') }}">仪表盘</a> / <a href="{{ url_for('server_detail', sid=s.id) }}">{{ s.name }}</a> / 文件管理</div>
+    <h1 class="dash-title"><i data-i="file"></i> 文件管理</h1>
+    <p class="dash-sub">管理服务器目录下的世界、插件、配置与日志文件</p>
+  </div>
+  <a class="btn btn-ghost" href="{{ url_for('server_detail', sid=s.id) }}">← 返回控制台</a>
+</div>
+
+<div class="card-panel">
+  <div class="panel-head">
+    <h3>当前位置: <code>{{ current_path }}</code></h3>
+    <div class="panel-head-right">
+      <span class="muted">共 {{ files | length }} 项</span>
+      {% if parent_path is defined %}
+      <a class="btn btn-ghost btn-xs" href="{{ url_for('server_files', sid=s.id, subpath=parent_path) }}">↩ 上级目录</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <table class="file-table">
+    <thead>
+      <tr>
+        <th style="width:56px">类型</th>
+        <th>名称</th>
+        <th style="width:160px">大小</th>
+        <th style="width:200px">修改时间</th>
+        <th style="width:120px">操作</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for f in files %}
+      <tr>
+        <td class="ft-type">
+          {% if f.is_dir %}📁
+          {% elif '.jar' in f.name %}☕
+          {% elif '.yml' in f.name or '.yaml' in f.name or '.properties' in f.name or '.json' in f.name or '.toml' in f.name or '.cfg' in f.name %}⚙
+          {% elif '.log' in f.name or '.txt' in f.name %}📄
+          {% elif '.png' in f.name or '.jpg' in f.name or '.jpeg' in f.name or '.gif' in f.name or '.webp' in f.name %}🖼
+          {% elif '.zip' in f.name or '.tar' in f.name or '.gz' in f.name or '.7z' in f.name or '.rar' in f.name %}🗜
+          {% elif '.class' in f.name or '.dat' in f.name or '.mca' in f.name %}💾
+          {% else %}📦
+          {% endif %}
+        </td>
+        <td class="ft-name">
+          {% if f.is_dir %}
+          <a href="{{ url_for('server_files', sid=s.id, subpath=f.path) }}"><b>{{ f.name }}</b></a>
+          {% else %}
+          {{ f.name }}
+          {% endif %}
+        </td>
+        <td class="muted">{{ f.size if not f.is_dir else '-' }}</td>
+        <td class="muted">{{ f.modified }}</td>
+        <td>
+          <button class="btn btn-danger btn-xs" onclick="deleteFile('{{ f.path }}')">删除</button>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="empty-row">目录为空</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<script>
+function deleteFile(path) {
+  if (!confirm('确认删除 ' + path + ' ? 此操作不可撤销!')) return;
+  fetch('/api/servers/{{ s.id }}/files/delete', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({path})
+  }).then(r=>r.json()).then(d=>{
+    if (d.ok) { location.reload(); }
+    else { alert('删除失败: ' + d.msg); }
+  });
+}
+</script>
+{% endblock %}

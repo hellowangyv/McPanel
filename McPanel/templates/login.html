@@ -1,0 +1,52 @@
+{% extends '_base.html' %}
+{% block title %}登录{% endblock %}
+{% block body_class %}auth-page{% endblock %}
+{% block content %}
+<div class="auth-card">
+  <div class="auth-top-strip">
+    <div class="dots"><span></span><span></span><span></span></div>
+    <span>McPanel · 登录 // SECURE ACCESS</span>
+    <span class="pill-dot" style="width:8px;height:8px;background:var(--primary);box-shadow:0 0 6px var(--primary);animation:pillPulse 1.2s infinite;border-radius:50%"></span>
+  </div>
+  <a class="auth-brand" href="{{ url_for('landing') }}">
+    <span class="brand-mark" aria-hidden="true">
+      <span class="bm bm-1"></span><span class="bm bm-2"></span><span class="bm bm-3"></span>
+    </span>
+    <span>McPanel</span>
+  </a>
+  <h1>欢迎回来</h1>
+  <p class="auth-sub">登录后立即管理你的 Minecraft 服务器</p>
+  <form method="post" class="auth-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+    <label>
+      <span>用户名 / 邮箱</span>
+      <input type="text" name="username" placeholder="admin / demo" required autofocus autocomplete="username" />
+    </label>
+    <label>
+      <span>密码</span>
+      <input type="password" name="password" required autocomplete="current-password" />
+    </label>
+    <label class="row">
+      <span class="checkbox-wrap">
+        <input type="checkbox" class="b-check" name="remember" checked />
+        <span>记住我 7 天</span>
+      </span>
+      <a href="#" onclick="alert('请联系管理员重置密码');return false;">忘记密码?</a>
+    </label>
+    <button class="btn btn-primary btn-block btn-lg" type="submit">
+      <i data-i="play" style="width:12px;height:12px"></i>
+      登 录
+    </button>
+  </form>
+  <div class="auth-divider"><span>或</span></div>
+  <a class="btn btn-outline btn-block" href="{{ url_for('auth_register') }}">
+    <i data-i="plus" style="width:12px;height:12px"></i>
+    注册新账号
+  </a>
+  {% if show_default_creds_hint %}
+  <div class="auth-hint">
+    <div>⚠ 检测到默认管理员口令未修改, 请尽快登录后修改</div>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
